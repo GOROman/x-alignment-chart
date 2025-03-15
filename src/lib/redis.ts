@@ -1,8 +1,24 @@
+/**
+ * Redisキャッシュ管理モジュール
+ * 
+ * Upstash Redisを使用して、アプリケーションのデータをキャッシュします。
+ * 主にアラインメント分析結果のキャッシュに使用されます。
+ */
+
 import { Redis } from "@upstash/redis"
 import { logger } from "./logger"
 
+// Redisクライアントのシングルトンインスタンス
 let redisClient: Redis | null = null
 
+/**
+ * Redisクライアントのインスタンスを取得する
+ * 
+ * シングルトンパターンを使用して、Redisクライアントの
+ * インスタンスを一度だけ作成し、再利用します。
+ * 
+ * @returns Redisクライアントのインスタンス
+ */
 export function getRedisClient() {
   if (!redisClient) {
     redisClient = new Redis({
@@ -14,6 +30,12 @@ export function getRedisClient() {
   return redisClient
 }
 
+/**
+ * Redisからキャッシュされたデータを取得する
+ * 
+ * @param key - キャッシュのキー
+ * @returns 指定された型のデータ、またはnull（キャッシュミスまたはエラー時）
+ */
 export async function getCachedData<T>(key: string): Promise<T | null> {
   try {
     const client = getRedisClient()
@@ -30,6 +52,13 @@ export async function getCachedData<T>(key: string): Promise<T | null> {
   }
 }
 
+/**
+ * Redisにデータをキャッシュする
+ * 
+ * @param key - キャッシュのキー
+ * @param data - キャッシュするデータ
+ * @param ttlSeconds - キャッシュの有効期限（秒）、デフォルト1時間
+ */
 export async function setCachedData(key: string, data: any, ttlSeconds = 3600): Promise<void> {
   try {
     const client = getRedisClient()
