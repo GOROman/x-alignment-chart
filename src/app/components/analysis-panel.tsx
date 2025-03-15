@@ -1,3 +1,16 @@
+/**
+ * アラインメント分析結果を表示するパネルコンポーネント
+ * 
+ * このコンポーネントは、画面下部に表示されるスライドインパネルで、
+ * 各ユーザーのアラインメント分析結果を時系列で表示します。
+ * 
+ * 主な機能：
+ * - アラインメント分析結果のリスト表示
+ * - 新しい分析結果の通知
+ * - スクロール可能なリスト表示
+ * - パネルの開閉アニメーション
+ */
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -16,6 +29,13 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
+/**
+ * アラインメント分析パネルコンポーネント
+ * 
+ * @param analyses - 分析結果の配列（ID、ユーザー名、画像、分析結果、タイムスタンプを含む）
+ * @param newAnalysisId - 新しい分析結果のID（通知用）
+ * @param children - 子要素（オプション）
+ */
 export function AnalysisPanel({
   analyses,
   newAnalysisId,
@@ -31,43 +51,54 @@ export function AnalysisPanel({
   newAnalysisId: string | null;
   children?: React.ReactNode;
 }) {
+  // パネルの開閉状態
   const [isOpen, setIsOpen] = useState(false);
+  // 新しい分析結果の通知状態
   const [hasNewAnalysis, setHasNewAnalysis] = useState(false);
+  // スクロールエリアの参照
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when new analyses are added
+  // 新しい分析結果が追加されたとき、スクロールを一番下に移動
   useEffect(() => {
     if (isOpen && scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [analyses, isOpen]);
 
-  // Handle new analysis notification
+  // 新しい分析結果の通知を処理
   useEffect(() => {
     if (newAnalysisId && !isOpen) {
       setHasNewAnalysis(true);
     }
   }, [newAnalysisId, isOpen]);
 
-  // Reset notification when panel is opened
+  // パネルが開かれたとき、通知をリセット
   useEffect(() => {
     if (isOpen) {
       setHasNewAnalysis(false);
     }
   }, [isOpen]);
 
-  // Get alignment name based on scores
+  /**
+   * スコアに基づいてアラインメント名を取得
+   * 
+   * @param lawfulChaotic - 秩序-混沌のスコア（-100から100）
+   * @param goodEvil - 善-悪のスコア（-100から100）
+   * @returns アラインメント名（例："Lawful Good"、"True Neutral"など）
+   */
   const getAlignmentName = (lawfulChaotic: number, goodEvil: number) => {
+    // 秩序-混沌の軸を判定（間値±33で判定）
     const lawfulAxis =
       lawfulChaotic < -33
         ? "Lawful"
         : lawfulChaotic > 33
         ? "Chaotic"
         : "Neutral";
+    // 善-悪の軸を判定（間値±33で判定）
     const goodAxis =
       goodEvil < -33 ? "Good" : goodEvil > 33 ? "Evil" : "Neutral";
 
-    // Special case for true neutral
+    // 両軸ともNeutralの場合は「True Neutral」
     if (lawfulAxis === "Neutral" && goodAxis === "Neutral") {
       return "True Neutral";
     }
