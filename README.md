@@ -1,37 +1,35 @@
-# X Alignment Chart
+# X アラインメントチャート
 
-Create D&D-style alignment charts for X (formerly Twitter) users. Place users on a Lawful-Chaotic and Good-Evil grid based on an AI analysis of their tweets or manually position them. Powered by [Exa](https://exa.ai/) and [Vercel AI SDK](https://sdk.vercel.ai).
+X（旧Twitter）ユーザーのD&Dスタイルのアラインメントチャートを作成します。AIによるツイート分析に基づいて、または手動でユーザーを秩序-混沌と善-悪のグリッド上に配置できます。[Exa](https://exa.ai/)と[Vercel AI SDK](https://sdk.vercel.ai)を使用しています。
 
-Try it here! → [magic-x-alignment-chart.vercel.app](https://dub.sh/magic-x-alignment-chart/)
+こちらで試せます！ → [magic-x-alignment-chart.vercel.app](https://dub.sh/magic-x-alignment-chart/)
 
 https://github.com/user-attachments/assets/2e5e2587-468e-4a77-ac59-742c92f8d58a
 
-## Tutorial
+## 使い方
 
-1. Enter an X username in the input field
-2. Choose between:
-   - **AI Analysis** (purple button): Analyzes the user's tweets and places them on the chart
-   - **Random Placement** (black button): Places the user randomly on the chart for manual positioning
-3. View the alignment chart with positioned users
-4. Drag unlocked users to reposition them (AI-placed users are locked)
-5. Click on chart axis labels to learn more about each alignment
+1. 入力欄にXのユーザー名を入力
+2. 以下のいずれかを選択：
+   - **AI分析**（紫色のボタン）：ユーザーのツイートを分析してチャート上に配置
+   - **ランダム配置**（黒色のボタン）：手動配置用にユーザーをランダムに配置
+3. 配置されたユーザーのアラインメントチャートを表示
+4. ロックされていないユーザーをドラッグして位置を変更（AI配置のユーザーはロックされています）
+5. チャートの軸のラベルをクリックして各アラインメントの詳細を確認
 
+## 開発環境のセットアップ
 
-## Development Setup
+1. 使用したいAIプロバイダー（OpenAI（デフォルト）、Anthropicなど）のアカウントを作成し、APIキーを取得
+2. [Upstash Redis](https://upstash.com/)でRedis DBをセットアップ
+3. `.env.example`をもとに`.env.local`ファイルを作成
+4. `bun install`で依存関係をインストール
+5. `bun dev`で開発サーバーを起動
 
-1. Sign up for accounts with the AI provider you want to use (e.g., OpenAI (default), Anthropic), and obtain an API key.
-2. Setup a Redis DB on [Upstash Redis](https://upstash.com/)
-3. Create a `.env.local` file based on the `.env.example` template
-4. `bun install` to install dependencies
-5. `bun dev` to run the development server
-
-
-## Deploy your own
+## 独自のデプロイ
 
 [![Deploy with Vercel](https://vercel.com/button)]([https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ff1shy-dev%2Fx-alignment-chart](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ff1shy-dev%2Fx-alignment-chart%2F&env=OPENAI_API_KEY,EXA_API_KEY&integration-ids=oac_V3R1GIpkoJorr6fqyiwdhl17))
 
-## Credits
+## クレジット
 
-- Original concept by [mdmatthewdc](https://x.com/mdmathewdc/status/1899767815344722325)
-- Draggable v0 by [rauchg](https://x.com/rauchg/status/1899895262023467035)
-- AI version (this one) by [f1shy-dev](https://x.com/vishyfishy2/status/1899929030620598508)
+- オリジナルのコンセプト：[mdmatthewdc](https://x.com/mdmathewdc/status/1899767815344722325)
+- Draggable v0：[rauchg](https://x.com/rauchg/status/1899895262023467035)
+- AIバージョン（このバージョン）：[f1shy-dev](https://x.com/vishyfishy2/status/1899929030620598508)
