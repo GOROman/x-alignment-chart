@@ -1,3 +1,16 @@
+/**
+ * アラインメントチャートのメインコンポーネント
+ * 
+ * このファイルは、X（旧Twitter）ユーザーのアラインメントチャートを表示・管理する
+ * メインのReactコンポーネントを含んでいます。
+ * 
+ * 主な機能：
+ * - ユーザーの追加（AI分析またはランダム配置）
+ * - ドラッグ＆ドロップによる位置調整
+ * - ローカルストレージへの保存と読み込み
+ * - レスポンシブなレイアウト調整
+ */
+
 "use client";
 
 import type React from "react";
@@ -61,21 +74,27 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
+/**
+ * ユーザーの位置を表す座標インターフェース
+ */
 interface Position {
   x: number;
   y: number;
 }
 
+/**
+ * チャート上のユーザー配置情報を表すインターフェース
+ */
 export interface Placement {
-  id: string;
-  src: string;
-  position: Position;
-  isDragging: boolean;
-  loading?: boolean;
-  username?: string;
-  analysis?: AlignmentAnalysis;
-  isAiPlaced?: boolean;
-  timestamp?: Date;
+  id: string;           // ユーザーの一意のID
+  src: string;          // アバター画像のURL
+  position: Position;   // チャート上の位置
+  isDragging: boolean;  // ドラッグ中かどうか
+  loading?: boolean;    // 読み込み中かどうか
+  username?: string;    // Xのユーザー名
+  analysis?: AlignmentAnalysis;  // AI分析結果
+  isAiPlaced?: boolean; // AIによって配置されたかどうか
+  timestamp?: Date;     // 配置された時刻
 }
 
 export default function AlignmentChart() {
@@ -94,6 +113,7 @@ export default function AlignmentChart() {
 
   const debouncedSave = useDebounce(cachePlacementsLocally, 500);
 
+  // IndexedDBから保存済みのユーザー配置を読み込む
   useEffect(() => {
     async function loadCachedUsers() {
       try {
@@ -111,10 +131,10 @@ export default function AlignmentChart() {
           }));
 
           setImages(loadedImages);
-          toast.success(`Loaded ${loadedImages.length} saved placements`);
+          toast.success(`${loadedImages.length}件の保存済み配置を読み込みました`);
         }
       } catch (error) {
-        logger.error("Failed to load users from IndexedDB:", error);
+        logger.error("IndexedDBからのユーザー読み込みに失敗:", error);
       } finally {
         setIsLoading(false);
       }
@@ -123,14 +143,15 @@ export default function AlignmentChart() {
     loadCachedUsers();
   }, []);
 
-  // Save users to IndexedDB whenever the images state changes
+  // ユーザー配置が変更されるたびにIndexedDBに保存
+  // デバウンス処理により、頻繁な保存を防止
   useEffect(() => {
     if (isLoading) return;
 
-    // Call our debounced save function
     debouncedSave(images);
   }, [images, isLoading, debouncedSave]);
 
+  // モバイルデバイスの検出とウィンドウリサイズの監視
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -144,6 +165,8 @@ export default function AlignmentChart() {
     };
   }, []);
 
+  // モバイルデバイスでのスクロール制御
+  // INPUT要素と.scrollableクラスを持つ要素以外のタッチ操作を防止
   useEffect(() => {
     const handleTouchMove = (e: TouchEvent) => {
       if (
@@ -165,6 +188,7 @@ export default function AlignmentChart() {
     };
   }, []);
 
+  // チャートとアバターのサイズを画面サイズに応じて調整
   useEffect(() => {
     const updateChartSize = () => {
       if (containerRef.current && chartRef.current) {
@@ -172,20 +196,24 @@ export default function AlignmentChart() {
         const viewportWidth = window.innerWidth;
         const isMobileView = viewportWidth < 768;
 
+        // 垂直方向の余白とパディングを計算
         const reservedVerticalSpace = isMobileView ? 120 : 140;
         const topPadding = isMobileView ? 20 : 0;
         const availableHeight =
           viewportHeight - reservedVerticalSpace - topPadding;
 
+        // 水平方向のパディングを計算（画面幅に応じて調整）
         const horizontalPadding = isMobileView
           ? Math.max(40, viewportWidth * 0.1)
           : Math.max(20, viewportWidth * 0.05);
         const availableWidth = viewportWidth - horizontalPadding * 2;
 
-        const size = Math.min(availableWidth, availableHeight); //constrained square
+        // チャートを正方形に制約
+        const size = Math.min(availableWidth, availableHeight);
 
         setChartSize({ width: size, height: size });
 
+        // アバターサイズをチャートサイズに比例して調整（最小40px、最大80px）
         const newImageSize = Math.max(40, Math.min(80, size / 7.5));
         setImageSize(newImageSize);
       }

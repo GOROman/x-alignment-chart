@@ -17,17 +17,26 @@ const AlignmentSchema = z.object({
 
 export type AlignmentAnalysis = z.infer<typeof AlignmentSchema>
 
+/**
+ * ユーザーのツイートを分析してアラインメントを判定する
+ * 
+ * @param username - 分析対象のユーザー名
+ * @returns アラインメント分析結果、キャッシュ情報、エラー情報を含むオブジェクト
+ */
 export async function analyseUser(username: string): Promise<AlignmentAnalysis & { cached: boolean; isError: boolean }> {
+  // @を除去してユーザー名を正規化
   const cleanUsername = username.trim().replace(/^@/, "")
   const cacheKey = `analysis-v2:${cleanUsername}`
 
   try {
+    // Redisからキャッシュを取得
     const cachedAnalysis = await getCachedData<AlignmentAnalysis>(cacheKey)
 
     if (cachedAnalysis) {
-      logger.info(`Using cached analysis for @${cleanUsername}`)
+      logger.info(`${cleanUsername}のキャッシュ済み分析結果を使用`)
       logger.info(cachedAnalysis)
 
+      // 分析キャッシュの使用を追跡
       waitUntil(track("analysis_cached", {
         username: cleanUsername,
         lawful_chaotic: cachedAnalysis.lawfulChaotic,
@@ -36,15 +45,18 @@ export async function analyseUser(username: string): Promise<AlignmentAnalysis &
       return { ...cachedAnalysis, cached: true, isError: false }
     }
 
-    logger.info(`Analyzing tweets for @${cleanUsername}`)
+    logger.info(`${cleanUsername}のツイートを分析中`)
 
+    // ユーザーのプロフィールとツイートを取得
     const profile = await fetchTwitterProfile(username)
     if (!profile) {
-      throw new Error(`No profile found for @${cleanUsername}`)
+      throw new Error(`${cleanUsername}のプロフィールが見つかりません`)
     }
 
+    // プロフィール情報をJSON形式に変換（ツイートは除外）
     const profile_str = JSON.stringify({ ...profile, tweets: undefined }, null, 2)
 
+    // ツイートをXML風のフォーマットに変換
     const tweetTexts = profile.tweets.map((tweet) =>
       `<post${tweet.is_quote_status ? " is_quote=\"true\"" : ""}>
 ${tweet.text}
@@ -52,27 +64,28 @@ ${tweet.favorite_count} likes, ${tweet.reply_count} replies, ${tweet.retweet_cou
 </post>`
     ).join("\n\n")
 
+    // GPT-4に渡すメッセージを構築
     const messages = [
       {
         role: "system",
         content: dedent`
-        Analyze the following tweets the given from Twitter user and determine their alignment on a D&D-style alignment chart.
+        与えられたTwitterユーザーのツイートを分析し、D&Dスタイルのアラインメントチャート上の位置を判定してください。
         
-        For lawful-chaotic axis:
-        - Lawful (-100): Follows rules, traditions, and social norms. They value tradition, loyalty, and order.
-        - Neutral (0): Balanced approach to rules and freedom
-        - Chaotic (100): Rebels against convention, valuing personal freedom - follows their own moral compass regardless of rules or traditions
+        秩序-混沌の軸：
+        - 秩序 (-100): 規則、伝統、社会規範に従う。伝統、忠誠、秩序を重視。
+        - 中立 (0): 規則と自由に対してバランスの取れたアプローチ
+        - 混沌 (100): 因習に反発し、個人の自由を重視。規則や伝統に関係なく自分の信念に従う
         
-        For good-evil axis:
-        - Good (-100): Altruistic, compassionate, puts others first
-        - Neutral (0): Balanced self-interest and concern for others
-        - Evil (100): Selfish, manipulative, or harmful to others. Some are motivated by greed, hatred, or lust for power.
+        善-悪の軸：
+        - 善 (-100): 利他的、思いやりがあり、他者を優先
+        - 中立 (0): 自己利益と他者への配慮がバランスを保つ
+        - 悪 (100): 利己的、操作的、他者に危害を加える。財款、憤怒、権力欲に動機付けられる
         
-        Based only on these tweets, provide a numerical assessment of this user's alignment. Be willing to move to any side/extreme!
+        これらのツイートのみに基づいて、ユーザーのアラインメントを数値で評価してください。どの極端にも振れることを恐れないでください！
 
-        Since this is a bit of fun, be willing to overly exaggerate if the user has a specific trait expressed barely - e.g. if they are evil at some point then make sure to express it! - I don't just want everyone to end up as chaotic-neutral in the end... However don't always exaggerate a user's chaotic characteristic, you can also try to exaggerate their lawful or good/evil traits if they are more pronounced. Just be fun with it.
+        これは楽しむためのものなので、ユーザーの特徴がわずかでも見られれば、それを誤張して構いません。例えば、悪の要素があれば、それを強調してください！全員を「混沌の中立」にしたくはありません。ただし、必ずしも混沌の特徴を誤張する必要はなく、より願著な秩序や善/悪の特徴を誤張することもできます。楽しく分析してください。
         
-        For the explaination, try to avoid overly waffling - but show your reasoning behind your judgement. You can mention specific things about their user like mentioned traits/remarks or projects/etc - the more personalised the better.
+        説明は冗長になりすぎないようにしつつ、判断の理由を示してください。ユーザーの特徴や発言、プロジェクトなどを具体的に言及すると、よりパーソナライズされた分析になります。
       `.trim()
       },
       {
@@ -91,16 +104,18 @@ ${tweetTexts}
     ] satisfies CoreMessage[]
 
 
+    // GPT-4を使用してツイートを分析
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
-      temperature: 0.8,
+      temperature: 0.8,  // 創造性を高めに設定
       schema: AlignmentSchema,
       messages
     })
 
-    // Cache for 2 weeks - maybe the users will have more tweets by then...
+    // 2週間キャッシュを保持（その間に新しいツイートが追加される可能性あり）
     await setCachedData(cacheKey, object, 604_800)
 
+    // 分析完了を追跡
     waitUntil(track("analysis_complete", {
       username: cleanUsername,
       lawful_chaotic: object.lawfulChaotic,
@@ -109,11 +124,11 @@ ${tweetTexts}
 
     return { ...object, cached: false, isError: false }
   } catch (error) {
-    logger.error(`Error analyzing tweets for @${cleanUsername}:`, error)
+    logger.error(`${cleanUsername}のツイート分析中にエラー発生:`, error)
     return {
       lawfulChaotic: 0,
       goodEvil: 0,
-      explanation: `Error analyzing tweets for @${cleanUsername}... Check you used a valid username and try again later.`,
+      explanation: `${cleanUsername}のツイート分析中にエラーが発生しました。ユーザー名を確認して再度お試しください。`,
       cached: false,
       isError: true,
     }
