@@ -1,3 +1,11 @@
+/**
+ * X（旧Twitter）ユーザーのアラインメント分析機能
+ * 
+ * このモジュールは、ユーザーのツイートを分析し、D&Dスタイルのアラインメントチャート上の
+ * 位置を判定する機能を提供します。GPT-4を使用して、ユーザーの発言パターンから
+ * 秩序-混沌、善-悪の軸上での位置を決定します。
+ */
+
 "use server"
 import "server-only"
 import { dedent } from "ts-dedent"
@@ -9,19 +17,44 @@ import { fetchTwitterProfile } from "../../lib/fetch-twitter-profile"
 import { logger } from "@/lib/logger"
 import { track } from '@vercel/analytics/server';
 import { waitUntil } from "@vercel/functions";
+
+/**
+ * アラインメント分析結果のスキーマ定義
+ * 
+ * - explanation: 分析結果の説明文
+ * - lawfulChaotic: 秩序-混沌の軸上のスコア（-100：秩序的、100：混沌的）
+ * - goodEvil: 善-悪の軸上のスコア（-100：善、100：悪）
+ */
 const AlignmentSchema = z.object({
-  explanation: z.string().describe("Your brief-ish explanation/reasoning for the given alignment assessment"),
-  lawfulChaotic: z.number().min(-100).max(100).describe("A score from -100 (lawful) to 100 (chaotic)"),
-  goodEvil: z.number().min(-100).max(100).describe("A score from -100 (good) to 100 (evil)"),
+  explanation: z.string().describe("アラインメント判定の説明と理由付け"),
+  lawfulChaotic: z.number().min(-100).max(100).describe("秩序(-100)から混沌(100)までのスコア"),
+  goodEvil: z.number().min(-100).max(100).describe("善(-100)から悪(100)までのスコア"),
 });
 
+/**
+ * アラインメント分析結果の型定義
+ */
 export type AlignmentAnalysis = z.infer<typeof AlignmentSchema>
 
 /**
  * ユーザーのツイートを分析してアラインメントを判定する
  * 
- * @param username - 分析対象のユーザー名
- * @returns アラインメント分析結果、キャッシュ情報、エラー情報を含むオブジェクト
+ * このメソッドは以下の手順でアラインメント分析を行います：
+ * 1. Redis キャッシュをチェックし、既存の分析結果があれば再利用
+ * 2. ユーザーのプロフィールとツイートを取得
+ * 3. GPT-4 を使用してツイートの内容を分析
+ * 4. 分析結果をキャッシュに保存（2週間有効）
+ * 
+ * エラー発生時は、エラーメッセージを含む中立的なアラインメント（0, 0）を返します。
+ * 
+ * @param username - 分析対象のユーザー名（@付きでも可）
+ * @returns {
+ *   explanation: アラインメントの説明文
+ *   lawfulChaotic: 秩序-混沌スコア
+ *   goodEvil: 善-悪スコア
+ *   cached: キャッシュヒットの有無
+ *   isError: エラー発生の有無
+ * }
  */
 export async function analyseUser(username: string): Promise<AlignmentAnalysis & { cached: boolean; isError: boolean }> {
   // @を除去してユーザー名を正規化
