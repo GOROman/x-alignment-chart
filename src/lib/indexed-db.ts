@@ -1,7 +1,25 @@
+/**
+ * IndexedDBを使用したローカルストレージ管理モジュール
+ * 
+ * このモジュールは、ユーザーの配置情報をブラウザのIndexedDBに保存し、
+ * ページの再読み込み後も状態を維持できるようにします。
+ */
+
 import { AlignmentAnalysis } from "@/app/actions/analyze-tweets";
 import { Placement } from "@/app/page";
 import { logger } from "./logger";
 
+/**
+ * IndexedDBに保存されるユーザー配置情報のインターフェース
+ * 
+ * @property id - ユニークな配置ID
+ * @property src - ユーザーのアバター画像URL
+ * @property position - チャート上の位置情報
+ * @property username - ユーザー名（オプション）
+ * @property analysis - アラインメント分析結果（オプション）
+ * @property isAiPlaced - AIによる配置かどうか（オプション）
+ * @property timestamp - 配置のタイムスタンプ（ISO形式）
+ */
 export interface StoredPlacement {
     id: string;
     src: string;
@@ -15,22 +33,41 @@ export interface StoredPlacement {
     timestamp?: string; // ISO string
 }
 
+// IndexedDBの設定値
 const DB_NAME = 'alignment-chart-db';
 const DB_VERSION = 1;
 const USERS_STORE = 'users';
 
+/**
+ * IndexedDBの状態管理用インターフェース
+ * 
+ * @property db - IndexedDBの接続インスタンス
+ * @property isInitializing - 初期化中かどうかのフラグ
+ * @property onInitialize - 初期化完了時に実行されるコールバック関数の配列
+ */
 interface IndexedDBInstance {
     db: IDBDatabase | null;
     isInitializing: boolean;
     onInitialize: Array<() => void>;
 }
 
+// IndexedDBのグローバルインスタンス
 const indexedDB: IndexedDBInstance = {
     db: null,
     isInitializing: false,
     onInitialize: [],
 };
 
+/**
+ * IndexedDBを初期化する関数
+ * 
+ * 以下の処理を行います：
+ * 1. 既に初期化済みの場合は何もしない
+ * 2. 初期化中の場合はコールバックを登録
+ * 3. 新規初期化の場合はデータベースを作成し、ストアを設定
+ * 
+ * @returns 初期化の完了を示すPromise
+ */
 export function initIndexedDB(): Promise<void> {
     return new Promise((resolve, reject) => {
         if (indexedDB.db) {
@@ -80,6 +117,14 @@ export function initIndexedDB(): Promise<void> {
     });
 }
 
+/**
+ * ユーザーの配置情報をIndexedDBにキャッシュする
+ * 
+ * 既存のキャッシュをクリアし、新しい配置情報を保存します。
+ * 各配置にはタイムスタンプが付与されます。
+ * 
+ * @param placements - キャッシュする配置情報の配列
+ */
 export async function cachePlacementsLocally(placements: Placement[]): Promise<void> {
     const stored_placements: StoredPlacement[] = placements.map((item) => ({
         id: item.id,
@@ -102,6 +147,7 @@ export async function cachePlacementsLocally(placements: Placement[]): Promise<v
         const transaction = indexedDB.db!.transaction([USERS_STORE], 'readwrite');
         const store = transaction.objectStore(USERS_STORE);
 
+        // 既存のキャッシュをクリア
         const clearRequest = store.clear();
 
         clearRequest.onsuccess = () => {
@@ -112,6 +158,7 @@ export async function cachePlacementsLocally(placements: Placement[]): Promise<v
                 return;
             }
 
+            // 各配置を順番に保存
             stored_placements.forEach(placement => {
                 const stored_placement: StoredPlacement = {
                     ...placement,
@@ -146,6 +193,11 @@ export async function cachePlacementsLocally(placements: Placement[]): Promise<v
     });
 }
 
+/**
+ * 指定されたIDの配置情報をキャッシュから削除する
+ * 
+ * @param id - 削除する配置のID
+ */
 export async function removeCachedPlacement(id: string): Promise<void> {
     await initIndexedDB();
     if (!indexedDB.db) throw new Error("IndexedDB not initialized");
@@ -167,6 +219,11 @@ export async function removeCachedPlacement(id: string): Promise<void> {
     });
 }
 
+/**
+ * キャッシュされているすべての配置情報を読み込む
+ * 
+ * @returns キャッシュされている配置情報の配列
+ */
 export async function loadCachedPlacements(): Promise<StoredPlacement[]> {
     await initIndexedDB();
     if (!indexedDB.db) return [];
@@ -188,10 +245,14 @@ export async function loadCachedPlacements(): Promise<StoredPlacement[]> {
     });
 }
 
+/**
+ * ローカルキャッシュを完全にクリアする
+ * 
+ * すべての配置情報をIndexedDBから削除します。
+ */
 export async function clearLocalCache(): Promise<void> {
     await initIndexedDB();
     if (!indexedDB.db) return;
-
 
     return new Promise((resolve, reject) => {
         const transaction = indexedDB.db!.transaction([USERS_STORE], 'readwrite');
